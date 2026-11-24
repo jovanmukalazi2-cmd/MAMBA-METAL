@@ -1,0 +1,6 @@
+{
+  "name": "MAMBA METAL FABRICATION",
+  "description": "Strong, durable, stylish, and affordable metal windows, modern gates, deckers, beds, security doors, and custom welding solutions by MAMBA METAL FABRICATION.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
