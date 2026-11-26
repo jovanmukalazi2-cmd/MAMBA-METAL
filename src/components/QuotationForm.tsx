@@ -1,13 +1,24 @@
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import {
+  Check,
   CheckCircle2,
+  Copy,
   FileImage,
+  Mail,
   MessageCircle,
+  MessageSquare,
   Send,
   Trash2,
   Upload,
 } from 'lucide-react';
-import { formatTelUrl, formatWhatsAppUrl } from '../data/businessData';
+import {
+  ALL_CONTACTS,
+  BUSINESS_EMAIL,
+  formatMailtoUrl,
+  formatSmsUrl,
+  formatTelUrl,
+  formatWhatsAppUrl,
+} from '../data/businessData';
 
 interface QuotationFormProps {
   selectedProduct: string;
@@ -17,6 +28,7 @@ interface SubmittedQuote {
   referenceId: string;
   customerName: string;
   phoneNumber: string;
+  targetContactNumber: string;
   productService: string;
   measurements: string;
   designDescription: string;
@@ -38,6 +50,7 @@ const PRODUCT_OPTIONS = [
 export function QuotationForm({ selectedProduct }: QuotationFormProps) {
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [targetContactNumber, setTargetContactNumber] = useState(ALL_CONTACTS[0].number);
   const [productService, setProductService] = useState(selectedProduct || 'Metal Gates');
   const [measurements, setMeasurements] = useState('');
   const [designDescription, setDesignDescription] = useState('');
@@ -45,6 +58,7 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
   const [imageFileName, setImageFileName] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [submittedQuote, setSubmittedQuote] = useState<SubmittedQuote | null>(null);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -117,6 +131,7 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
       referenceId: refNumber,
       customerName: trimmedName,
       phoneNumber: cleanedPhone,
+      targetContactNumber,
       productService,
       measurements: measurements.trim() || 'Not specified (site check requested)',
       designDescription:
@@ -130,7 +145,11 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
       localStorage.setItem(
         'mamba_quote_requests',
         JSON.stringify([
-          { ...quoteRecord, imagePreviewUrl: imageFileName ? '[attached]' : null, createdAt: new Date().toISOString() },
+          {
+            ...quoteRecord,
+            imagePreviewUrl: imageFileName ? '[attached]' : null,
+            createdAt: new Date().toISOString(),
+          },
           ...existing.slice(0, 19),
         ])
       );
@@ -139,6 +158,7 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
     }
 
     setSubmittedQuote(quoteRecord);
+    setCopied(false);
   };
 
   const handleReset = () => {
@@ -149,10 +169,42 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
     setDesignDescription('');
     clearImage();
     setFormError(null);
+    setCopied(false);
   };
 
-  const buildWhatsAppQuoteMessage = (quote: SubmittedQuote) =>
-    `Hello MAMBA METAL FABRICATION, I submitted quote request ${quote.referenceId}.\nName: ${quote.customerName}\nPhone: ${quote.phoneNumber}\nProduct/Service: ${quote.productService}\nMeasurements: ${quote.measurements}\nDesign Notes: ${quote.designDescription}`;
+  const buildQuoteMessage = (quote: SubmittedQuote) => {
+    const lines = [
+      'Hello MAMBA METAL FABRICATION, I would like to request a custom quote:',
+      `Reference: ${quote.referenceId}`,
+      `Customer Name: ${quote.customerName}`,
+      `Customer Phone: ${quote.phoneNumber}`,
+      `Product / Service: ${quote.productService}`,
+      `Size / Measurements: ${quote.measurements}`,
+      `Design Description: ${quote.designDescription}`,
+    ];
+    if (quote.imageFileName) {
+      lines.push(`Reference Image Attached: ${quote.imageFileName} (please share image in chat/email)`);
+    }
+    lines.push('Location: Salaama Road, Juwakali');
+    return lines.join('\n');
+  };
+
+  const handleCopyMessage = async (quote: SubmittedQuote) => {
+    try {
+      await navigator.clipboard.writeText(buildQuoteMessage(quote));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Clipboard blocked
+    }
+  };
+
+  const orderedContacts = submittedQuote
+    ? [
+        ...ALL_CONTACTS.filter((c) => c.number === submittedQuote.targetContactNumber),
+        ...ALL_CONTACTS.filter((c) => c.number !== submittedQuote.targetContactNumber),
+      ]
+    : ALL_CONTACTS;
 
   return (
     <section id="quote" className="bg-slate-50 text-slate-900 py-20 lg:py-24">
@@ -167,7 +219,8 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
             </h2>
             <p className="mt-4 text-base text-slate-600 leading-relaxed">
               Share the product you need, approximate dimensions, and any reference sketch or photo.
-              Our fabrication team will prepare a clear price estimate and timeline.
+              Your custom quote can be sent straight to our workshop phone numbers via WhatsApp or
+              SMS, as well as to our email.
             </p>
 
             <div className="mt-8 p-6 rounded-xl bg-[#0A1628] text-white border border-slate-800">
@@ -192,6 +245,15 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
                   Call 0783816867
                 </a>
               </div>
+              <p className="mt-4 text-xs text-slate-300">
+                Email:{' '}
+                <a
+                  href={`mailto:${BUSINESS_EMAIL}`}
+                  className="font-semibold text-orange-400 hover:underline"
+                >
+                  {BUSINESS_EMAIL}
+                </a>
+              </p>
             </div>
           </div>
 
@@ -206,13 +268,13 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
                     />
                     <div>
                       <h3 className="font-display text-2xl font-bold text-emerald-950">
-                        Quotation Request Received!
+                        Quotation Ready to Send!
                       </h3>
                       <p className="mt-1 text-sm text-emerald-900">
                         Thank you, <span className="font-semibold">{submittedQuote.customerName}</span>.
                         Your request (<span className="font-mono font-semibold">{submittedQuote.referenceId}</span>)
-                        has been logged. Our team will reach out shortly on{' '}
-                        <span className="font-semibold tabular-nums">{submittedQuote.phoneNumber}</span>.
+                        is ready. Tap WhatsApp, SMS, or Email below to deliver your custom quote
+                        message to our workshop numbers and email.
                       </p>
                     </div>
                   </div>
@@ -249,20 +311,112 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a
-                      href={formatWhatsAppUrl('0701816867', buildWhatsAppQuoteMessage(submittedQuote))}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors whitespace-nowrap shrink-0"
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <a
+                        href={formatWhatsAppUrl(
+                          submittedQuote.targetContactNumber,
+                          buildQuoteMessage(submittedQuote)
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <MessageCircle className="w-4 h-4" aria-hidden="true" />
+                        <span>Send via WhatsApp ({submittedQuote.targetContactNumber})</span>
+                      </a>
+
+                      <a
+                        href={formatSmsUrl(
+                          submittedQuote.targetContactNumber,
+                          buildQuoteMessage(submittedQuote)
+                        )}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-md transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                        <span>Send SMS ({submittedQuote.targetContactNumber})</span>
+                      </a>
+
+                      <a
+                        href={formatMailtoUrl(
+                          BUSINESS_EMAIL,
+                          `Custom Quote Request ${submittedQuote.referenceId} - ${submittedQuote.productService}`,
+                          buildQuoteMessage(submittedQuote)
+                        )}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-bold text-white bg-[#0A1628] hover:bg-slate-800 rounded-md transition-colors whitespace-nowrap shrink-0"
+                      >
+                        <Mail className="w-4 h-4" aria-hidden="true" />
+                        <span>Send to Email</span>
+                      </a>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                        Or Send Message to Any of Our Numbers
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {orderedContacts.map((contact) => (
+                          <div
+                            key={contact.number}
+                            className="flex items-center justify-between gap-2 p-2.5 rounded-md bg-white border border-slate-200"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-[#0A1628] tabular-nums">
+                                {contact.number}
+                              </p>
+                              <p className="text-[11px] text-slate-500 truncate">{contact.role}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={formatWhatsAppUrl(
+                                  contact.number,
+                                  buildQuoteMessage(submittedQuote)
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-2.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded transition-colors"
+                              >
+                                WhatsApp
+                              </a>
+                              <a
+                                href={formatSmsUrl(
+                                  contact.number,
+                                  buildQuoteMessage(submittedQuote)
+                                )}
+                                className="px-2.5 py-1.5 text-xs font-bold text-[#0A1628] bg-slate-100 hover:bg-orange-500 hover:text-white rounded transition-colors"
+                              >
+                                SMS
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyMessage(submittedQuote)}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[#0A1628] border border-slate-300 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                     >
-                      <MessageCircle className="w-4 h-4" aria-hidden="true" />
-                      <span>Send Details via WhatsApp</span>
-                    </a>
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                          <span>Message Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" aria-hidden="true" />
+                          <span>Copy Quote Message</span>
+                        </>
+                      )}
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleReset}
-                      className="px-5 py-3 text-sm font-semibold text-[#0A1628] border border-slate-300 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                      className="px-5 py-2.5 text-sm font-semibold text-[#0A1628] border border-slate-300 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
                     >
                       Submit Another Request
                     </button>
@@ -355,6 +509,27 @@ export function QuotationForm({ selectedProduct }: QuotationFormProps) {
                         className="w-full px-3.5 py-2.5 rounded-md border border-slate-300 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="quote-target-number"
+                      className="block text-sm font-semibold text-[#0A1628] mb-1.5"
+                    >
+                      Send Quote To Workshop Number
+                    </label>
+                    <select
+                      id="quote-target-number"
+                      value={targetContactNumber}
+                      onChange={(e) => setTargetContactNumber(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-md border border-slate-300 bg-white text-slate-900 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
+                    >
+                      {ALL_CONTACTS.map((contact) => (
+                        <option key={contact.number} value={contact.number}>
+                          {contact.number} — {contact.role} ({contact.label})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

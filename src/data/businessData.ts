@@ -47,8 +47,19 @@ export function formatWhatsAppUrl(localNumber: string, customMessage?: string): 
   return `https://wa.me/${intl}?text=${text}`;
 }
 
+export const BUSINESS_EMAIL = 'jovanmukalazi2@gmail.com';
+
 export function formatTelUrl(localNumber: string): string {
   return `tel:${localNumber.replace(/\s+/g, '')}`;
+}
+
+export function formatSmsUrl(localNumber: string, message: string): string {
+  const cleanNumber = localNumber.replace(/\s+/g, '');
+  return `sms:${cleanNumber}?body=${encodeURIComponent(message)}`;
+}
+
+export function formatMailtoUrl(email: string, subject: string, body: string): string {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 export const MAIN_CONTACTS: ContactPerson[] = [
